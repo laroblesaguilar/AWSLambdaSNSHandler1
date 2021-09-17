@@ -1,8 +1,8 @@
 using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.Model;
+using Amazon.DynamoDBv2.DataModel;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.SNSEvents;
-using System.Collections.Generic;
+using System;
 using System.Threading.Tasks;
 
 
@@ -43,21 +43,17 @@ namespace AWSLambdaSNSHandler1
         private async Task ProcessRecordAsync(SNSEvent.SNSRecord record, ILambdaContext context)
         {
             AmazonDynamoDBClient client = new AmazonDynamoDBClient();
-            string tableName = "SNSTutorial";
-
-            var request = new PutItemRequest
+            var dynamoContext = new DynamoDBContext(client);
+            var message = new SNSMessage() { messageId = record.Sns.MessageId, messageBody = record.Sns.Message, processedDate = record.Sns.Timestamp.ToString() };
+            try
             {
-                TableName = tableName,
-                Item = new Dictionary<string, AttributeValue>()
-                {
-                    { "messageId", new AttributeValue { S = record.Sns.MessageId }},
-                    { "processedDate", new AttributeValue { S = record.Sns.Timestamp.ToString() }},
-                    { "messageBody", new AttributeValue { S = record.Sns.Message }}
-                }
-            };
+                await dynamoContext.SaveAsync(message);
 
-            await client.PutItemAsync(request);
-            context.Logger.LogLine($"Processed record {record.Sns.MessageId}");
+            }
+            catch(Exception ex)
+            {
+                context.Logger.Log($"Exception caught saving message: {ex}");
+            }
         }
     }
 }
